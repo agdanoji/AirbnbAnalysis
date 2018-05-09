@@ -1,0 +1,299 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**3. Does events or holidays affect the price?**<br>\n",
+    "\n",
+    "Null Hypothesis: Events and holidays do not affect the price (x_mean - y_mean = 0)<br>\n",
+    "Alternate Hypothesis : Events and holidays affect the price (x_mean - y_mean != 0)<br>\n",
+    "\n",
+    "We process the data to analyze three cases<br>\n",
+    "1. ComicConMonthEventPrice vs PreviousNonEventMonthPrice<br>\n",
+    "2. ComicConMonthEventPrice vs PreviousAllNonEventMonthPrice<br>\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import csv\n",
+    "import glob\n",
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "from collections import Counter\n",
+    "import matplotlib.pyplot as plt\n",
+    "from scipy.stats import norm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "months_2015 = ['9','10','11','12']\n",
+    "months = ['10','11','12']\n",
+    "event = []\n",
+    "non_event = []\n",
+    "noneventmonth = []\n",
+    "ccdf = pd.DataFrame()\n",
+    "non_eventdf = pd.DataFrame()\n",
+    "allnoneventdf = pd.DataFrame()\n",
+    "boroughs = ['Manhattan']\n",
+    "for year in (2015,2016,2017):\n",
+    "    path = \"data2/\"+str(year)\n",
+    "    if os.path.exists(path):\n",
+    "        cols = ['id','price','neighbourhood_group_cleansed','room_type']\n",
+    "        allFiles = glob.glob(os.path.join(path,\"*.csv\"))\n",
+    "        \n",
+    "        for file_ in allFiles:\n",
+    "            iter_csv = pd.read_csv(file_, iterator=True, chunksize=1000, usecols = cols)\n",
+    "            df = pd.concat([chunk[chunk['neighbourhood_group_cleansed'].isin(boroughs)] for chunk in iter_csv])\n",
+    "            listings_count = len(df.index)\n",
+    "            \n",
+    "            #preprocess price\n",
+    "            df = df[df.price != 0]\n",
+    "            #df = df[df.room_type == 'Entire home/apt']\n",
+    "            df['price'] = df['price'].replace('[\\$,)]','',regex=True).replace('[(]','-', regex=True).astype(float)\n",
+    "            df = df.dropna(axis=0)\n",
+    "            \n",
+    "            #get month\n",
+    "            filename = file_.split('.')[0]\n",
+    "            month = filename.split('_')[1]\n",
+    "            \n",
+    "            if year == 2015:\n",
+    "                if month not in months_2015:\n",
+    "                    if len(allnoneventdf) == 0:\n",
+    "                        allnoneventdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                        allnoneventdf['year'] = year\n",
+    "                    else:\n",
+    "                        tempdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                        tempdf['year'] = year\n",
+    "                        allnoneventdf = pd.concat([allnoneventdf,tempdf])\n",
+    "            else:\n",
+    "                if month not in months:\n",
+    "                    if len(allnoneventdf) == 0:\n",
+    "                        allnoneventdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                        allnoneventdf['year'] = year\n",
+    "                    else:\n",
+    "                        tempdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                        tempdf['year'] = year\n",
+    "                        allnoneventdf = pd.concat([allnoneventdf,tempdf])\n",
+    "                    \n",
+    "            #get the evnts and non events month list\n",
+    "            \n",
+    "            if month == '10':\n",
+    "                if len(ccdf.index) == 0:\n",
+    "                    ccdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                    ccdf['year'] = year\n",
+    "                else:\n",
+    "                    tempdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                    tempdf['year'] = year\n",
+    "                    ccdf = pd.concat([ccdf,tempdf])\n",
+    "            elif month == '9':\n",
+    "                if len(non_eventdf.index) == 0:\n",
+    "                    non_eventdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                    non_eventdf['year'] = year\n",
+    "                else:\n",
+    "                    tempdf = pd.concat([df['price'], df['id']], axis=1)\n",
+    "                    tempdf['year'] = year\n",
+    "                    non_eventdf = pd.concat([non_eventdf,tempdf])\n",
+    "                #print non_eventdf\n",
+    "            \n",
+    "            "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**2. ComicConEventMonthPrices vs PrevNonEventMonthPrices<br>**\n",
+    "Data Pre-processing: <br>\n",
+    "We have nov_marathondf and non_eventdf dataframes which have rows of the form [id,year,price]. We then take a join of the 2 dataframes on id and year to compare prices in the same year"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Total common listings in xmas month vs prev non event month: 50412\n",
+      "No of listings that have prices greater in xmas month: 2220\n",
+      "Total common listings in xmas month vs prev non event month: 50206\n",
+      "No of listings that have prices greater in xmas month: 11021\n"
+     ]
+    }
+   ],
+   "source": [
+    "\n",
+    "non_eventdf = non_eventdf.rename(index=str, columns={\"price\": \"noneventprice\", \"id\": \"id\",\"year\":\"year\"})\n",
+    "allnoneventdf = allnoneventdf.rename(index=str, columns={\"price\": \"allnoneventprice\", \"id\": \"id\",\"year\":\"year\"})\n",
+    "allnoneventdf = allnoneventdf.groupby(['id','year'])['allnoneventprice'].mean()\n",
+    "allnoneventdf = allnoneventdf.reset_index()\n",
+    "#comiccon vs prev non event month\n",
+    "ccresult = pd.merge(ccdf,\n",
+    "                 non_eventdf[['noneventprice','id','year']],\n",
+    "                 on=['id','year'])\n",
+    "#print ccresult\n",
+    "ccprice = ccresult['price'].tolist()\n",
+    "ccne_price = ccresult['noneventprice'].tolist()\n",
+    "listings_count = len(ccresult.index)\n",
+    "print \"Total common listings in xmas month vs prev non event month: \" + str(listings_count)\n",
+    "count = ccresult[ccresult['price'] > ccresult['noneventprice']]\n",
+    "print \"No of listings that have prices greater in xmas month: \"+ str(len(count.index))\n",
+    "\n",
+    "#comiccon\n",
+    "ccresult_2 = pd.merge(ccdf,\n",
+    "                 allnoneventdf[['allnoneventprice','id','year']],\n",
+    "                 on=['id','year'])\n",
+    "ccprice_2  = ccresult_2['price'].tolist()\n",
+    "ccne_price_2 = ccresult_2['allnoneventprice'].tolist()\n",
+    "listings_count = len(ccresult_2.index)\n",
+    "print \"Total common listings in xmas month vs prev non event month: \" + str(listings_count)\n",
+    "count = ccresult_2[ccresult_2['price'] > ccresult_2['allnoneventprice']]\n",
+    "print \"No of listings that have prices greater in xmas month: \"+ str(len(count.index))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "** 2 population wald's test**<br>\n",
+    "Walds statistic for comparison of population of 2 means, the p-value and confidence interval are displayed.The significance level alpha = 0.05"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 2 population wald's test\n",
+    "def twopop_walds(X,Y):\n",
+    "    \n",
+    "\n",
+    "    #calculate variances\n",
+    "    x_var = np.var(X)\n",
+    "    y_var = np.var(Y)\n",
+    "    #print x_var\n",
+    "    \n",
+    "    #calculate means\n",
+    "    x_mean = np.mean(X)\n",
+    "    y_mean = np.mean(Y)\n",
+    "    diff = x_mean - y_mean\n",
+    "\n",
+    "    se_hat = np.sqrt(x_var/len(X) + y_var/len(Y))\n",
+    "    #print se_hat\n",
+    "\n",
+    "    w = np.divide((diff),se_hat)\n",
+    "    print \"walds statistic: \"+str(w)\n",
+    "    \n",
+    "    z_critical = norm.ppf(0.975)\n",
+    "    margin_of_error = z_critical * se_hat\n",
+    "    confidence_interval = (diff - margin_of_error, diff + margin_of_error)\n",
+    "    \n",
+    "    pVal = 2*norm.cdf(-abs(w))\n",
+    "    \n",
+    "    print \"p-value: \" + str(pVal)\n",
+    "    print \"CI: \" + str(confidence_interval)\n",
+    "\n",
+    "    if abs(w)>1.96:\n",
+    "        print(\"Null Hypothesis Rejected\")\n",
+    "    else:\n",
+    "        print(\"Null Hypothesis Accepted\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Compute the 2 populate walds test for the 3 cases mentioned above"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "walds statistic: 0.6574030551698413\n",
+      "p-value: 0.5109217876797054\n",
+      "CI: (-1.9313371953634473, 3.8808306035665723)\n",
+      "Null Hypothesis Accepted\n",
+      "walds statistic: 1.8856296828773944\n",
+      "p-value: 0.059344874551560504\n",
+      "CI: (-0.1065028242909265, 5.509792619212801)\n",
+      "Null Hypothesis Accepted\n"
+     ]
+    }
+   ],
+   "source": [
+    "#comic con vs prev non event month\n",
+    "A = np.array(ccprice,dtype=np.float32)\n",
+    "B = np.array(ccne_price,dtype=np.float32)\n",
+    "twopop_walds(A,B)\n",
+    "\n",
+    "#comic con vs all non event months\n",
+    "A = np.array(ccprice_2,dtype=np.float32)\n",
+    "B = np.array(ccne_price_2,dtype=np.float32)\n",
+    "twopop_walds(A,B)\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Conclusion**<br>\n",
+    "1. At 5% level of significance, the data provides sufficient evidence that the average price of a listing doe not vary during comic con when compared to prev non event months and all non event months<br>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 2",
+   "language": "python",
+   "name": "python2"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython2",
+   "version": "2.7.14"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
